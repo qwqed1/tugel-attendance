@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { CalendarDays, Pencil, Plus } from 'lucide-react';
 import { GroupSheet, StudentSheet } from '@/components/forms';
 import { addDays, todayISO, useApp } from '@/lib/app';
-import { Empty, LoadError, Loading, Meter, PeriodTabs, SubTop, useData } from '@/components/ui';
+import { Empty, ExportButton, LoadError, Loading, Meter, PeriodTabs, SubTop, useData } from '@/components/ui';
 
 type Row = { id: number; full_name: string; total: number; rate: number | null; absent: number; late: number; sick: number; excused: number; exempt: number };
 type Data = { group: { id: number; name: string; specialty: string; course: number }; students: Row[] };
@@ -36,6 +36,7 @@ export default function Group() {
           </button>
         </div>
         <PeriodTabs value={period} onChange={setPeriod} />
+        <ExportButton period={period} groupId={Number(id)} />
       </SubTop>
       <main className="pb-10">
         {error && !data ? (

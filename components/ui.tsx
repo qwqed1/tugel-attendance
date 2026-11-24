@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import useSWR from 'swr';
-import { ChevronLeft, ChevronRight, FileText, IdCard, LayoutGrid, LogOut, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileSpreadsheet, FileText, IdCard, LayoutGrid, LogOut, Users } from 'lucide-react';
 import { addDays, api, haptic, PAIRS, tg, todayISO, useApp, weekdayIndex, type Cell } from '@/lib/app';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -281,6 +281,48 @@ export function PeriodTabs({ value, onChange }: { value: number; onChange: (n: n
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * Excel есебін жүктеу. Сервер 10 минутқа жарамды сілтеме береді:
+ * Telegram ішінде — downloadFile (Bot API 8.0+) немесе сыртқы браузер, әйтпесе — кәдімгі жүктеу.
+ */
+export function ExportButton({ period, groupId }: { period: number; groupId?: number }) {
+  const { t, lang, toast, errText } = useApp();
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    haptic();
+    try {
+      const to = todayISO();
+      const { path, file_name } = await api<{ path: string; file_name: string }>('/admin/export', {
+        method: 'POST',
+        body: { group_id: groupId, from: addDays(to, 1 - period), to, lang },
+      });
+      const url = location.origin + path;
+      const w = tg();
+      if (w?.initData && w.downloadFile && w.isVersionAtLeast?.('8.0')) w.downloadFile({ url, file_name });
+      else if (w?.initData && w.openLink) w.openLink(url);
+      else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file_name;
+        a.click();
+      }
+      toast(t('exportReady'));
+    } catch (e) {
+      haptic('error');
+      toast(errText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button onClick={run} disabled={busy} className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-[14px] border border-white/30 text-[14px] font-semibold active:bg-white/10 disabled:opacity-50">
+      <FileSpreadsheet size={17} />
+      {busy ? t('exportBusy') : `${t('exportExcel')} · ${t(`period${period}`)}`}
+    </button>
   );
 }
 

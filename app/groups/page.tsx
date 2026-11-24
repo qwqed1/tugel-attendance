@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { GroupSheet } from '@/components/forms';
 import { addDays, todayISO, useApp } from '@/lib/app';
-import { BottomNav, Brand, LangToggle, LoadError, Loading, Meter, PeriodTabs, useData } from '@/components/ui';
+import { BottomNav, Brand, ExportButton, LangToggle, LoadError, Loading, Meter, PeriodTabs, useData } from '@/components/ui';
 
 type Group = { id: number; name: string; course: number; specialty: string; students: number; rate: number | null; absent: number };
 
@@ -27,6 +27,7 @@ export default function Groups() {
           {t('addGroup')}
         </button>
         <PeriodTabs value={period} onChange={setPeriod} />
+        <ExportButton period={period} />
       </header>
       <main className="pb-28">
         {error && !data ? (

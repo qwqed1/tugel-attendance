@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { all, get, run, tx, ensureLessons, isDate, todayISO, addDays, STATUSES } from './db';
 import { authenticate, BOT_TOKEN, DEMO, handleBotUpdate, webhookSecret, type User } from './auth';
+import { buildExport, exportName, exportToken, readToken } from './export';
 
 class HttpError extends Error {
   constructor(public status: number, public code: string) {
@@ -436,6 +437,16 @@ const routes: [string, RegExp, Role, Handler][] = [
     return exemptions();
   }],
 
+  // Excel есебіне қол қойылған сілтеме (Telegram ішінде файл тек сілтеме арқылы жүктеледі)
+  ['POST', /^admin\/export$/, 'admin', async (c) => {
+    const [from, to] = range(new URLSearchParams({ from: String(c.body?.from ?? ''), to: String(c.body?.to ?? '') }));
+    const g = Number(c.body?.group_id) || null;
+    const lang = c.body?.lang === 'ru' ? 'ru' : 'kk';
+    const group = g ? ((await get('SELECT name FROM groups WHERE id = ?', g)) ?? fail('not_found', 404)) : null;
+    const token = exportToken({ u: c.user.id, g, from, to, lang });
+    return { path: `/api/export?t=${token}`, file_name: exportName(lang, group?.name ?? null, from, to) };
+  }],
+
   ['GET', /^admin\/users$/, 'admin', async () => users()],
 
   ['POST', /^admin\/users$/, 'admin', async (c) => {
@@ -475,6 +486,19 @@ export async function handle(req: Request, segments: string[]): Promise<Response
       if (!BOT_TOKEN || req.headers.get('x-telegram-bot-api-secret-token') !== webhookSecret()) fail('forbidden', 403);
       await handleBotUpdate(await req.json().catch(() => null));
       return Response.json({ ok: true });
+    }
+
+    if (req.method === 'GET' && path === 'export') {
+      const job = readToken(new URL(req.url).searchParams.get('t'));
+      const file = job && (await buildExport(job));
+      if (!file) fail('link_expired', 403);
+      return new Response(new Uint8Array(file!.data), {
+        headers: {
+          'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'content-disposition': `attachment; filename="report.xlsx"; filename*=UTF-8''${encodeURIComponent(file!.name)}`,
+          'cache-control': 'private, no-store',
+        },
+      });
     }
 
     const auth = await authenticate(req);
